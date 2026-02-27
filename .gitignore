@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+venv/
+env/
+.venv/
+*.pt
+data/raw/
+data/processed/
+data/tokenizer/
+Final_output/spark_slm_instruct.pt
+Final_output/spark_slm_weights.pt
