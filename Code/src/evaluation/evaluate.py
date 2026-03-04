@@ -9,15 +9,18 @@ sys.path.append(BASE_DIR)
 from src.model.config import SparkConfig
 from src.model.transformer import SparkTransformer
 from src.training.pretrain import DatasetLoader
+from src.utils.logger import setup_global_logger
+
+setup_global_logger(BASE_DIR)
 
 @torch.no_grad()
 def evaluate_model():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     config = SparkConfig()
     
-    DATA_PATH = os.path.join(BASE_DIR, 'data', 'processed', 'master_dataset.txt')
+    DATA_PATH = os.path.join(BASE_DIR, 'data', 'processed', 'train.bin')
     TOKENIZER_PATH = os.path.join(BASE_DIR, 'data', 'tokenizer', 'spark_tokenizer.json')
-    MODEL_PATH = os.path.join(BASE_DIR, 'src', 'model', 'spark_slm_weights.pt')
+    MODEL_PATH = os.path.join(BASE_DIR, 'src', 'model', 'spark_llm_weights.pt')
     
     if not os.path.exists(MODEL_PATH):
         print("Pretrained model not found. Run pretraining first.")
@@ -30,7 +33,7 @@ def evaluate_model():
     model.eval()
     
     # We evaluate over 10 batches
-    loader = DatasetLoader(DATA_PATH, TOKENIZER_PATH, config)
+    loader = DatasetLoader(DATA_PATH, config)
     
     total_loss = 0.0
     eval_iters = 10

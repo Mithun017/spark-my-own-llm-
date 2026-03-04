@@ -16,6 +16,12 @@ except ImportError:
     from tokenizers.trainers import BpeTrainer
     from tokenizers.pre_tokenizers import Whitespace
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(BASE_DIR)
+
+from src.utils.logger import setup_global_logger
+setup_global_logger(BASE_DIR)
+
 def train_tokenizer(data_path: str, save_dir: str, vocab_size: int = 8000):
     """
     Trains a custom Byte Pair Encoding (BPE) tokenizer on the processed dataset.

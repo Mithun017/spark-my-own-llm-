@@ -11,10 +11,10 @@ from src.agent.agent_core import SparkAgent
 from src.deployment.safety import is_safe_prompt, format_refusal
 
 # Initialize FastAPI App
-app = FastAPI(title="SPARK SLM Deployment API", version="1.0.0")
+app = FastAPI(title="SPARK LLM Deployment API", version="1.0.0")
 
 # Preload the agent (which loads the PyTorch models into VRAM)
-print("Booting SPARK SLM Backend...")
+print("Booting SPARK LLM Backend...")
 # Wrapped in try/except in case weights are missing for immediate run
 try:
     spark_agent = SparkAgent()
@@ -59,6 +59,6 @@ def health_check():
     return {"status": "ok", "model_loaded": spark_agent is not None}
 
 if __name__ == "__main__":
-    print("\n--- SPARK SLM Server Online ---")
+    print("\n--- SPARK LLM Server Online ---")
     print("Access the API docs at: http://127.0.0.1:8000/docs")
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")

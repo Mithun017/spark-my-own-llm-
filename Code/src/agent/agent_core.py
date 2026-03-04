@@ -12,16 +12,16 @@ class SparkAgent:
         print("Initializing SPARK Reasoning Core...")
         # Load the instruction-tuned model for the agent
         self.generator = SparkGenerator(use_instruct=True)
-        self.system_prompt = "System: You are SPARK, a highly capable analytical SLM. If you need to do math, output '<CALL:calc:math_expression>'. If asked for the time, output '<CALL:time>'. "
+        self.system_prompt = "System: You are SPARK, a highly capable analytical LLM. If you need to do math, output '<CALL:calc:math_expression>'. If asked for the time, output '<CALL:time>'. "
 
     def execute_reasoning_loop(self, user_msg: str):
         # Build prompt
         full_context = f"{self.system_prompt}\nUser: {user_msg}\nResponse: "
         
-        # 1. Ask the SLM what it wants to do
+        # 1. Ask the LLM what it wants to do
         response = self.generator.generate(full_context, max_new_tokens=40, temperature=0.7)
         
-        # 2. Check if the SLM generated a Tool Call trigger keyword
+        # 2. Check if the LLM generated a Tool Call trigger keyword
         # E.g. <CALL:calc:5*5>
         if "<CALL:" in response:
             try:
@@ -50,7 +50,7 @@ class SparkAgent:
             except Exception as e:
                 return f"Agent parsing error: {e}"
                 
-        # If no tool was needed, just return the raw SLM prediction
+        # If no tool was needed, just return the raw LLM prediction
         return response
 
 if __name__ == "__main__":

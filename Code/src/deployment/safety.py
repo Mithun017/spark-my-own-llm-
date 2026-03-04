@@ -1,6 +1,6 @@
 import re
 
-# Simple hardcoded safety checks for educational SLM blueprint
+# Simple hardcoded safety checks for educational LLM blueprint
 OFFENSIVE_WORDS = ["kill", "destroy", "hack", "illegal", "murder"]
 
 def is_safe_prompt(prompt: str) -> bool:

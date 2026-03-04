@@ -36,7 +36,7 @@ def process_raw_data(raw_dir: str, processed_dir: str):
     total_cleaned_paragraphs = 0
     
     # We will combine all cleaned unique paragraphs into a single output or maintain file mapping
-    # For SPARK SLM, a continuous text format or JSONL works well. Let's do a single master.txt
+    # For SPARK LLM, a continuous text format or JSONL works well. Let's do a single master.txt
     master_out_path = os.path.join(processed_dir, "master_dataset.txt")
     
     with open(master_out_path, 'w', encoding='utf-8') as f_out:
