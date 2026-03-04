@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+import time
 from tokenizers import Tokenizer
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -8,31 +9,36 @@ sys.path.append(BASE_DIR)
 
 from src.model.config import SparkConfig
 from src.model.transformer import SparkTransformer
+from src.utils.logger import setup_global_logger
+
+setup_global_logger(BASE_DIR)
+
+from datasets import load_dataset
 
 class InstructionDataset:
     def __init__(self, tokenizer_path, config):
         self.config = config
         self.tokenizer = Tokenizer.from_file(tokenizer_path)
         
-        # A tiny mock instruction dataset for educational scaffolding
-        self.QA_PAIRS = [
-            ("What is SPARK?", "SPARK is a custom small language model built from scratch."),
-            ("Who created you?", "I was constructed using PyTorch and Transformer architecture by a master engineer."),
-            ("What is 2 + 2?", "The answer is 4."),
-            ("Explain gravity.", "Gravity is a fundamental physical force that pulls objects with mass towards each other."),
-            ("Write a poem about the sea.", "The ocean waves crash on the shore, a deep blue mystery evermore. With salty breeze and distant sails, the sea whispers its ancient tales."),
-            ("What is Python?", "Python is a high-level programming language known for its readability and versatile libraries, heavily used in AI."),
-            ("How do neural networks work?", "They use layers of interconnected nodes to perform matrix multiplications and learn patterns from data through backpropagation."),
-            ("Hello!", "Hello! How can I assist you today?"),
-            ("What is the capital of France?", "The capital of France is Paris."),
-            ("Can you do math?", "Yes, I can compute basic mathematical expressions if you provide them."),
-            ("Tell me a joke.", "Why did the AI cross the road? To optimize the path to the other side!"),
-        ]
+        print("Fetching 'databricks/databricks-dolly-15k' Instruction Dataset for SFT...")
+        # explicitly route cache away from C Drive
+        cache_dir = os.path.join(BASE_DIR, 'data', 'full_data')
+        self.dataset = load_dataset("databricks/databricks-dolly-15k", split="train", cache_dir=cache_dir)
         
+        print(f"Parsing 15,000 Professional Human Instructions into Tensors...")
         self.parsed_data = []
-        for q, a in self.QA_PAIRS:
-            # We use an Instruction -> Response prompt template
-            text = f"Instruction: {q}\nResponse: {a}[EOS]"
+        
+        for row in self.dataset:
+            instruction = row.get("instruction", "")
+            context = row.get("context", "")
+            response = row.get("response", "")
+            
+            # Map into the strict templating schema
+            if context.strip():
+                text = f"Instruction: {instruction}\nContext: {context}\nResponse: {response}[EOS]"
+            else:
+                text = f"Instruction: {instruction}\nResponse: {response}[EOS]"
+                
             encoded = self.tokenizer.encode(text)
             self.parsed_data.append(torch.tensor(encoded.ids, dtype=torch.long))
             
@@ -64,8 +70,9 @@ def finetune_model():
     config = SparkConfig()
     
     TOKENIZER_PATH = os.path.join(BASE_DIR, 'data', 'tokenizer', 'spark_tokenizer.json')
-    PRETRAINED_PATH = os.path.join(BASE_DIR, 'src', 'model', 'spark_slm_weights.pt')
-    SFT_SAVE_PATH = os.path.join(BASE_DIR, 'src', 'model', 'spark_slm_instruct.pt')
+    PRETRAINED_PATH = os.path.join(BASE_DIR, 'src', 'model', 'spark_llm_weights.pt')
+    SFT_SAVE_PATH = os.path.join(BASE_DIR, 'src', 'model', 'spark_llm_instruct.pt')
+    SFT_DEPLOY_PATH = os.path.join(BASE_DIR, 'Final_output', 'model', 'spark_llm_instruct.pt')
     
     # Load Model structure
     model = SparkTransformer(config)
@@ -83,7 +90,8 @@ def finetune_model():
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate / 10) # Lower LR for finetuning
     
     model.train()
-    iterations = 1500 # INCREASED: 1500 loops for heavy supervised fine tuning
+    iterations = 3000 # SCALED LLM: 3000 loops to fully adapt to the 15k instructions
+    start_time = time.time()
     for iter in range(iterations):
         X, Y = dataset.get_batch()
         X, Y = X.to(device), Y.to(device)
@@ -96,11 +104,26 @@ def finetune_model():
         optimizer.step()
         
         if iter % 50 == 0:
-            print(f"SFT Iteration {iter} | Loss: {loss.item():.4f}")
+            elapsed = time.time() - start_time
+            iters_per_sec = (iter + 1) / elapsed if elapsed > 0 else 0
+            rem_iters = iterations - iter
+            eta_sec = rem_iters / iters_per_sec if iters_per_sec > 0 else 0
+            
+            mins, secs = divmod(int(eta_sec), 60)
+            hrs, mins = divmod(mins, 60)
+            eta_str = f"{hrs:02d}h {mins:02d}m {secs:02d}s" if hrs > 0 else f"{mins:02d}m {secs:02d}s"
+            
+            percent = (iter / iterations) * 100
+            print(f"SFT Epoch {iter}/{iterations} [{percent:.1f}%] | ETA: {eta_str} | Loss: {loss.item():.4f}")
             
     print("Fine-tuning completed!")
-    torch.save(model.state_dict(), SFT_SAVE_PATH)
-    print(f"Instruct Model saved to {SFT_SAVE_PATH}")
+    
+    os.makedirs(os.path.dirname(SFT_DEPLOY_PATH), exist_ok=True)
+    model_state = model.state_dict()
+    
+    torch.save(model_state, SFT_SAVE_PATH)
+    torch.save(model_state, SFT_DEPLOY_PATH)
+    print(f"Instruct Model saved to {SFT_SAVE_PATH} and {SFT_DEPLOY_PATH}")
 
 if __name__ == "__main__":
     finetune_model()
